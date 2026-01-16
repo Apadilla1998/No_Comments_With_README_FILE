@@ -1054,6 +1054,14 @@ Run SQUARE_TEST autonomous and measure final position error
 
 ---
 
+## Additional Resources
+
+**Purdue SIGBots Wiki:**
+Browse through the [Purdue SIGBots wiki](https://wiki.purduesigbots.com/) to learn
+the heavy theoretics of odometry and the PID controller.
+
+---
+
 ## License
 
 This project is intended for educational and competition use in VEX Robotics competitions.

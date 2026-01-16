@@ -16,9 +16,9 @@ public:
     void turnBy(double deltaDeg, int timeoutMs = 3000);
 
 private:
-    PID distPD_;
-    PID headPD_;
-    PID turnPD_;
+    PID distPID_;
+    PID headPID_;
+    PID turnPID_;
 };
 
 #endif

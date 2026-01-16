@@ -23,34 +23,41 @@ double MotionController::angleDiffDeg(double targetDeg, double currentDeg) {
 }
 
 MotionController::MotionController()
-    : distPD_(0.1, 0.0, 0.0),
-      headPD_(1.5, 0.0, 0.04),
-      turnPD_(3.5, 0.0, 0.35)
+    : distPID_(0.1, 0.0, 0.0),
+      headPID_(1.5, 0.0, 0.04),
+      turnPID_(3.5, 0.01, 0.35)
 {
-    distPD_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
-    distPD_.setDerivativeFilterTf(0.10);
-    distPD_.setErrorDeadband(0.003);
-    distPD_.setOutputLimits(-100, 100);
+    distPID_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
+    distPID_.setDerivativeFilterTf(0.10);
+    distPID_.setAntiWindupTau(0.15);
+    distPID_.setErrorDeadband(0.003);
+    distPID_.setOutputLimits(-100, 100);
 
-    headPD_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
-    headPD_.setDerivativeFilterTf(0.05);
-    headPD_.setOutputLimits(-12, 12);
+    headPID_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
+    headPID_.setDerivativeFilterTf(0.05);
+    headPID_.setAntiWindupTau(0.20);
+    headPID_.setIntegralZone(0.0);
+    headPID_.setIntegralLimits(-2.0, 2.0);
+    headPID_.setOutputLimits(-12, 12);
 
-    turnPD_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
-    turnPD_.setDerivativeFilterTf(0.06);
-    turnPD_.setErrorDeadband(0.3);
-    turnPD_.setOutputLimits(-60, 60);
+    turnPID_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
+    turnPID_.setDerivativeFilterTf(0.06);
+    turnPID_.setAntiWindupTau(0.18);
+    turnPID_.setIntegralZone(15.0);
+    turnPID_.setIntegralLimits(-50.0, 50.0);
+    turnPID_.setErrorDeadband(0.3);
+    turnPID_.setOutputLimits(-60, 60);
 }
 
 void MotionController::drive(double distM, int timeoutMs, double maxSpeedPct) {
     const double startM = rotDegToM(verticalRot.position(deg));
     const double holdHead = inertial_sensor.heading(deg);
 
-    distPD_.setSetpoint(distM);
-    distPD_.resetBumpless(0.0, 0.0);
+    distPID_.setSetpoint(distM);
+    distPID_.resetBumpless(0.0, 0.0);
 
-    headPD_.setSetpoint(0.0);
-    headPD_.resetBumpless(0.0, 0.0);
+    headPID_.setSetpoint(0.0);
+    headPID_.resetBumpless(0.0, 0.0);
 
     const int dtMs = 10;
     const double dt = dtMs / 1000.0;
@@ -73,9 +80,9 @@ void MotionController::drive(double distM, int timeoutMs, double maxSpeedPct) {
 
         double cap = minCap + 200.0 * std::fabs(distErr);
         cap = std::min(cap, maxSpeedPct);
-        distPD_.setOutputLimits(-cap, cap);
+        distPID_.setOutputLimits(-cap, cap);
 
-        double v = distPD_.update(traveled, dt);
+        double v = distPID_.update(traveled, dt);
 
         if (std::fabs(distErr) < stopBand) {
             v = 0.0;
@@ -93,7 +100,7 @@ void MotionController::drive(double distM, int timeoutMs, double maxSpeedPct) {
 
         const double currHead = inertial_sensor.heading(deg);
         const double headErr  = angleDiffDeg(holdHead, currHead);
-        double w = headPD_.update(-headErr, dt);
+        double w = headPID_.update(-headErr, dt);
 
         if (std::fabs(distErr) < 0.04) {
             w = 0.0;
@@ -119,7 +126,7 @@ void MotionController::drive(double distM, int timeoutMs, double maxSpeedPct) {
 }
 
 void MotionController::turnTo(double targetDeg, int timeoutMs) {
-    turnPD_.setSetpoint(0.0);
+    turnPID_.setSetpoint(0.0);
 
     const int dtMs = 10;
     const double dt = dtMs / 1000.0;
@@ -136,7 +143,7 @@ void MotionController::turnTo(double targetDeg, int timeoutMs) {
     {
         const double curr = inertial_sensor.heading(deg);
         const double err0 = angleDiffDeg(targetDeg, curr);
-        turnPD_.resetBumpless(-err0, 0.0);
+        turnPID_.resetBumpless(-err0, 0.0);
     }
 
     while (t.time(msec) < timeoutMs) {
@@ -148,7 +155,7 @@ void MotionController::turnTo(double targetDeg, int timeoutMs) {
         const double rate = dHead / dt;
         rateFilt += alpha * (rate - rateFilt);
 
-        const double turnOut = turnPD_.update(-err, dt);
+        const double turnOut = turnPID_.update(-err, dt);
         tankDrive(turnOut, -turnOut);
 
         if (std::fabs(err) < 1.0 && std::fabs(rateFilt) < rateTol) {
@@ -172,7 +179,7 @@ void MotionController::turnBy(double deltaDeg, int timeoutMs) {
     const int dtMs = 10;
     const double dt = dtMs / 1000.0;
 
-    turnPD_.setSetpoint(0.0);
+    turnPID_.setSetpoint(0.0);
 
     double prevRot = inertial_sensor.rotation(vex::deg);
     double rateFilt = 0.0;
@@ -182,7 +189,7 @@ void MotionController::turnBy(double deltaDeg, int timeoutMs) {
 
     {
         const double err0 = targetRot - inertial_sensor.rotation(vex::deg);
-        turnPD_.resetBumpless(-err0, 0.0);
+        turnPID_.resetBumpless(-err0, 0.0);
     }
 
     int settledMs = 0;
@@ -196,7 +203,7 @@ void MotionController::turnBy(double deltaDeg, int timeoutMs) {
         const double rate = dRot / dt;
         rateFilt += alpha * (rate - rateFilt);
 
-        const double out = turnPD_.update(-err, dt);
+        const double out = turnPID_.update(-err, dt);
         tankDrive(out, -out);
 
         if (std::fabs(err) < 1.0 && std::fabs(rateFilt) < rateTol) {
