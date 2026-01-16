@@ -1,28 +1,24 @@
-/*----------------------------------------------------------------------------*/
-/*                                                                            */
-/*    Module:       main.cpp                                                  */
-/*    Author:       gamer                                                     */
-/*    Created:      1/15/2026, 8:42:14 PM                                     */
-/*    Description:  V5 project                                                */
-/*                                                                            */
-/*----------------------------------------------------------------------------*/
 #include "vex.h"
+#include "robot_config.h"
+#include "pre_auton.h"
+#include "autons.h"
+#include "manual.h"
 
 using namespace vex;
 
-// A global instance of vex::brain used for printing to the V5 brain screen
-vex::brain       Brain;
+competition Competition;
 
-// define your global instances of motors and other devices here
-
+static void autonomous() {
+    runAutonomous();
+}
 
 int main() {
+    Competition.autonomous(autonomous);
+    Competition.drivercontrol(usercontrol);
 
-    Brain.Screen.printAt( 10, 50, "Hello V5" );
-   
-    while(1) {
-        
-        // Allow other tasks to run
-        this_thread::sleep_for(10);
+    pre_auton();
+
+    while (true) {
+        wait(100, msec);
     }
 }
