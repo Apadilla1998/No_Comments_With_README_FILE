@@ -151,11 +151,25 @@ void usercontrol() {
         double lReq = (fwd + trn) * speedScale * LEFT_BIAS;
         double rReq = (fwd - trn) * speedScale * RIGHT_BIAS;
 
-        lCmd = slewStep(lReq, lCmd);
-        rCmd = slewStep(rReq, rCmd);
+        const bool neutral = (fwd == 0.0 && trn == 0.0);
 
-        LeftMotorGroup.spin(forward, lCmd, pct);
-        RightMotorGroup.spin(forward, rCmd, pct);
+        if(neutral){
+            lCmd = 0.0;
+            rCmd = 0.0;
+
+            LeftMotorGroup.stop(brake);
+            RightMotorGroup.stop(brake);
+        }
+        else{
+            lCmd = slewStep(lReq, lCmd);
+            rCmd = slewStep(rReq, rCmd);
+
+            LeftMotorGroup.spin(forward, lCmd, pct);
+            RightMotorGroup.spin(forward, rCmd, pct);
+        }
+
+
+
 
         bool needsUpdate = false;
 

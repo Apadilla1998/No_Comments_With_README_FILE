@@ -48,15 +48,21 @@ static void blueRight() {
     m.turnTo(90, 5000);
     wait(10, msec);
 
-    m.drive(0.43, 4000, 80);
-    wait(10, msec);
+    m.drive(0.425, 4000, 80);
+    wait(5, msec);
 
     runIntake(100);
-    wait(200, msec);
+    wait(2000, msec);
 
-    m.drive(-0.100, 4000, 80);
-    m.turnBy(180, 4000);
+    stopIntake();
+    m.drive(-0.400, 4000, 80);
     wait(10, msec);
+
+    // m.turnBy(185, 4000);
+    // wait(10, msec);
+
+    // m.drive(0.40, 5000, 80);
+    // wait(10, msec);
 
     // m.turnTo(-90, 5000);
     // wait(10, msec);
