@@ -5,7 +5,7 @@
 
 using namespace vex;
 
-AutonRoutine selectedAuton = AutonRoutine::RED_RIGHT;
+AutonRoutine selectedAuton = AutonRoutine::BLUE_RIGHT;
 
 static void autonTest() {
     MotionController m;
@@ -41,13 +41,38 @@ static void blueLeft() {
 
 static void blueRight() {
     MotionController m;
+
+    m.drive(0.992, 4000, 80); //timeout and its percentage;
+    wait(10, msec);
+
+    m.turnTo(90, 5000);
+    wait(10, msec);
+
+    m.drive(0.43, 4000, 80);
+    wait(10, msec);
+
     runIntake(100);
-    m.drive(1.2);
-    m.turnTo(-90);
-    m.drive(0.5);
-    reverseIntake(100); reverseOutake(100);
-    wait(800, msec);
-    stopIntake(); stopOutake();
+    wait(200, msec);
+
+    m.drive(-0.100, 4000, 80);
+    m.turnBy(180, 4000);
+    wait(10, msec);
+
+    // m.turnTo(-90, 5000);
+    // wait(10, msec);
+
+    // m.drive(0.43, 5000, 80);
+    // wait(10, msec);
+
+    // // runIntake(100);
+    // // runOutake(100);
+    // // wait(500, msec);
+
+    // // stopIntake();
+    // // stopOutake();
+    // m.drive(-0.100, 4000, 80);
+    // m.turnBy(180, 5000);
+    // wait(10, msec);
 }
 
 static void skills() {

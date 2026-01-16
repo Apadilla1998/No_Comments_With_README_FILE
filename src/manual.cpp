@@ -9,7 +9,7 @@
 using namespace vex;
 
 static const double FWD_CURVE  = 0.1;
-static const double TURN_CURVE = 0.1;
+static const double TURN_CURVE = 0.3;
 static const double LEFT_BIAS  = 0.98;
 static const double RIGHT_BIAS = 1.0;
 

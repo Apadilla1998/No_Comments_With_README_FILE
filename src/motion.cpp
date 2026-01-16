@@ -23,14 +23,14 @@ double MotionController::angleDiffDeg(double targetDeg, double currentDeg) {
 }
 
 MotionController::MotionController()
-    : distPID_(0.1, 0.0, 0.0),
-      headPID_(1.5, 0.0, 0.04),
-      turnPID_(3.5, 0.01, 0.35)
+    : distPID_(0.2, 0.0, 0.0),
+      headPID_(0.2, 0.0, 0.0),
+      turnPID_(0.2, 0.0, 0.0)
 {
     distPID_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
     distPID_.setDerivativeFilterTf(0.10);
     distPID_.setAntiWindupTau(0.15);
-    distPID_.setErrorDeadband(0.003);
+    distPID_.setErrorDeadband(0.010);
     distPID_.setOutputLimits(-100, 100);
 
     headPID_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
@@ -66,8 +66,8 @@ void MotionController::drive(double distM, int timeoutMs, double maxSpeedPct) {
     int settledMs = 0;
 
     const double minCap   = 10.0;
-    const double stopBand = 0.008;
-    const double kFloor   = 450.0;
+    const double stopBand = 0.015;
+    // const double kFloor   = 450.0;
 
     double vCmd = 0.0;
     const double dvPerSec = 160.0;
@@ -86,9 +86,12 @@ void MotionController::drive(double distM, int timeoutMs, double maxSpeedPct) {
 
         if (std::fabs(distErr) < stopBand) {
             v = 0.0;
+            vCmd = 0.0;
         } else {
-            const double floor = std::min(minCap, kFloor * std::fabs(distErr));
-            if (std::fabs(v) < floor) v = (distErr > 0.0) ? floor : -floor;
+            if(std::fabs(distErr) > 0.05){
+                const double floor = 8.0;
+                if(std::fabs(v) < floor) v = (distErr > 0.0) ? floor : -floor;
+            }
         }
 
         if (std::fabs(distErr) < 0.03 && std::fabs(v) < 12.0 && (v * distErr) < 0.0) {
@@ -112,9 +115,9 @@ void MotionController::drive(double distM, int timeoutMs, double maxSpeedPct) {
 
         tankDrive(v + w, v - w);
 
-        if (std::fabs(distErr) < 0.015 && std::fabs(v) < 10.0) {
+        if (std::fabs(distErr) < 0.02 && std::fabs(vCmd) < 6.0) {
             settledMs += dtMs;
-            if (settledMs >= 120) break;
+            if (settledMs >= 40) break;
         } else {
             settledMs = 0;
         }

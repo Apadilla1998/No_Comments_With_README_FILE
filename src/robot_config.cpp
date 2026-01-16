@@ -38,7 +38,7 @@ motor DescoreMotor(PORT18, ratio36_1, true);
 namespace config {
     const double TRACK_WIDTH_M = 0.320;
 
-    const double TRACKING_WHEEL_CIRCUMFERENCE_M = 0.0835 * M_PI;
+    const double TRACKING_WHEEL_CIRCUMFERENCE_M = 0.05  * M_PI;
 
     const double ARCADE_DEADBAND = 1.0;
 
