@@ -230,69 +230,93 @@ void MotionController::turnBy(double deltaDeg, int timeoutMs) {
 }
 
 void MotionController::autoCorrect(double targetX, double targetY, double targetHeadingDeg,
-                                  int timeoutMs, double maxSpeedPct) {
-    const double ENTER_DIST = 0.10;
-    const double EXIT_DIST  = 0.06;
+                                   int timeoutMs, double maxSpeedPct) {
+    const double ENTER_DIST = 0.12;
+    const double EXIT_DIST  = 0.07;
 
-    const double ENTER_ANG  = 4.0;
-    const double EXIT_ANG   = 2.0;
+    const double ENTER_ANG  = 6.0;
+    const double EXIT_ANG   = 3.0;
 
-    const double FACE_TOL   = 8.0;
-    const double MAX_STEP_M = 0.25;
+    const double ENTER_POS  = 0.06;
+    const double EXIT_POS   = 0.03;
 
-    const double corrSpeed = std::min(maxSpeedPct, 40.0);
+    const double MAX_STEP_M = 0.20;
 
-    int turnTimeout  = timeoutMs * 3 / 10;
-    int driveTimeout = timeoutMs * 5 / 10;
+    const double corrSpeed = std::min(maxSpeedPct, 30.0);
+
+    int turnTimeout  = std::max(450, timeoutMs * 4 / 10);
+    int driveTimeout = std::max(650, timeoutMs * 5 / 10);
+
+    bool engagedPos = false;
 
     for (int iter = 0; iter < 2; ++iter) {
+        wait(20, msec);
+
         double dx = targetX - robotPose.x;
         double dy = targetY - robotPose.y;
-        double distError = std::hypot(dx, dy);
 
-        if (distError > ENTER_DIST) {
-            double angleToTargetDeg = radToDeg(std::atan2(dx, dy));
+        double distNow = std::hypot(dx, dy);
 
-            double currentHeading = inertial_sensor.heading(vex::deg);
-            double faceErr = wrap180(angleToTargetDeg - currentHeading);
-            double driveSign = 1.0;
+        double currHead = inertial_sensor.heading(vex::deg);
+        double headErrAbs = std::fabs(angleDiffDeg(targetHeadingDeg, currHead));
 
-            if (std::fabs(faceErr) > 90.0) {
-                angleToTargetDeg = wrap180(angleToTargetDeg + 180.0);
-                driveSign = -1.0;
-                faceErr = wrap180(angleToTargetDeg - currentHeading);
-            }
+        if (distNow < EXIT_DIST && headErrAbs < EXIT_ANG) break;
 
-            if (std::fabs(faceErr) > FACE_TOL) {
-                turnTo(angleToTargetDeg, turnTimeout);
-            }
-
-            dx = targetX - robotPose.x;
-            dy = targetY - robotPose.y;
-            double distToDrive = std::hypot(dx, dy);
-
-            double step = std::min(distToDrive, MAX_STEP_M);
-
-            if (step > EXIT_DIST) {
-                drive(driveSign * step, driveTimeout, corrSpeed);
-            }
-        }
-
-        double currentHeading = inertial_sensor.heading(vex::deg);
-        double headingErrAbs = std::fabs(angleDiffDeg(targetHeadingDeg, currentHeading));
-
-        if (headingErrAbs > ENTER_ANG) {
+        if (headErrAbs > ENTER_ANG) {
             turnTo(targetHeadingDeg, turnTimeout);
+            wait(20, msec);
         }
 
         dx = targetX - robotPose.x;
         dy = targetY - robotPose.y;
-        double distNow = std::hypot(dx, dy);
 
-        currentHeading = inertial_sensor.heading(vex::deg);
-        double headNow = std::fabs(angleDiffDeg(targetHeadingDeg, currentHeading));
+        const double h = degToRad(targetHeadingDeg);
+        double fwd = dx * std::sin(h) + dy * std::cos(h);
+        double lat = dx * std::cos(h) - dy * std::sin(h);
 
-        if (distNow < EXIT_DIST && headNow < EXIT_ANG) break;
+        if (!engagedPos) {
+            if (distNow > ENTER_DIST) engagedPos = true;
+            if (!engagedPos && (std::fabs(lat) > ENTER_POS || std::fabs(fwd) > ENTER_POS)) engagedPos = true;
+        }
+
+        if (engagedPos) {
+            if (std::fabs(lat) < EXIT_POS) lat = 0.0;
+            if (std::fabs(fwd) < EXIT_POS) fwd = 0.0;
+
+            if (std::fabs(lat) > ENTER_POS) {
+                double latStep = clampD(lat, -MAX_STEP_M, MAX_STEP_M);
+                double slideHeading = wrap180(targetHeadingDeg + (latStep > 0.0 ? +90.0 : -90.0));
+
+                turnTo(slideHeading, turnTimeout);
+                drive(std::fabs(latStep), driveTimeout, corrSpeed);
+                turnTo(targetHeadingDeg, turnTimeout);
+
+                wait(20, msec);
+            }
+
+            dx = targetX - robotPose.x;
+            dy = targetY - robotPose.y;
+
+            const double h2 = degToRad(targetHeadingDeg);
+            fwd = dx * std::sin(h2) + dy * std::cos(h2);
+
+            if (std::fabs(fwd) < EXIT_POS) fwd = 0.0;
+
+            if (std::fabs(fwd) > ENTER_POS) {
+                double fwdStep = clampD(fwd, -MAX_STEP_M, MAX_STEP_M);
+                drive(fwdStep, driveTimeout, corrSpeed);
+                wait(20, msec);
+            }
+        }
+
+        dx = targetX - robotPose.x;
+        dy = targetY - robotPose.y;
+        distNow = std::hypot(dx, dy);
+
+        currHead = inertial_sensor.heading(vex::deg);
+        headErrAbs = std::fabs(angleDiffDeg(targetHeadingDeg, currHead));
+
+        if (distNow < EXIT_DIST && headErrAbs < EXIT_ANG) break;
     }
 }
 
