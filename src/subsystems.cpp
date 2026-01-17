@@ -5,13 +5,15 @@
 
 using namespace vex;
 
-Alliance myAlliance = RED;
+Alliance myAlliance = BLUE;
 Wings wings;
+
 
 void Wings::toggle() {
     state = !state;
     wingsPiston.set(state);
 }
+
 void Wings::set(bool s) {
     state = s;
     wingsPiston.set(state);

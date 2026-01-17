@@ -42,21 +42,31 @@ static void blueLeft() {
 static void blueRight() {
     MotionController m;
 
-    m.drive(0.992, 4000, 80); //timeout and its percentage;
+    m.drive(0.82, 6000, 80); //timeout and its percentage;
     wait(10, msec);
 
     m.turnTo(90, 5000);
     wait(10, msec);
 
-    m.drive(0.425, 4000, 80);
-    wait(5, msec);
+    m.drive(0.33, 5000, 80);
+    wait(10, msec);
 
     runIntake(100);
-    wait(2000, msec);
+    wait(1, sec);
 
     stopIntake();
-    m.drive(-0.400, 4000, 80);
     wait(10, msec);
+
+
+    // m.drive(0.415, 4000, 80);
+    // wait(5, msec);
+
+    // runIntake(100);  
+    // wait(2000, msec);
+
+    // stopIntake();
+    // m.drive(-0.400, 4000, 80);
+    // wait(10, msec);
 
     // m.turnBy(185, 4000);
     // wait(10, msec);

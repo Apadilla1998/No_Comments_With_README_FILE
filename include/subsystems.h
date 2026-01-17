@@ -16,6 +16,16 @@ private:
     bool state;
 };
 
+class Subsystems {
+public:
+    Subsystems() : state(false) {}
+    void toggle();
+    void set(bool s);
+    bool isExtended() const { return state; }
+private:
+    bool state;
+};
+
 extern Wings wings;
 
 void runIntake(double speedPct = 100.0);

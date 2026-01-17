@@ -1,3 +1,4 @@
+
 #include "manual.h"
 #include "robot_config.h"
 #include "subsystems.h"
@@ -7,6 +8,15 @@
 #include <algorithm>
 
 using namespace vex;
+
+//shit for the outtakes
+static const int OUTTAKE_NORMAL_PCT   = 50; 
+static const int OUTTAKE_WINGS_UP_PCT = 100;  
+
+static const double OUTTAKE_ACCEL_PCT_PER_S = 600.0;
+static const double OUTTAKE_DECEL_PCT_PER_S = 900.0;
+
+static double outtakeCmd = 0.0; 
 
 static const double FWD_CURVE  = 0.1;
 static const double TURN_CURVE = 0.3;
@@ -140,6 +150,11 @@ void usercontrol() {
         return current + delta;
     };
 
+    LeftMotorGroup.setStopping(brake);
+    RightMotorGroup.setStopping(brake);
+
+    bool wasNeutral = false;
+
     while (true) {
         double fwd = computeCurve(Controller1.Axis3.position(pct), FWD_CURVE);
         double trn = computeCurve(Controller1.Axis1.position(pct), TURN_CURVE);
@@ -153,23 +168,24 @@ void usercontrol() {
 
         const bool neutral = (fwd == 0.0 && trn == 0.0);
 
-        if(neutral){
+        if (neutral) {
             lCmd = 0.0;
             rCmd = 0.0;
 
-            LeftMotorGroup.stop(brake);
-            RightMotorGroup.stop(brake);
-        }
-        else{
+            if (!wasNeutral) {
+                LeftMotorGroup.stop();   
+                RightMotorGroup.stop();
+                wasNeutral = true;
+            }
+        } else {
+            wasNeutral = false;
+
             lCmd = slewStep(lReq, lCmd);
             rCmd = slewStep(rReq, rCmd);
 
             LeftMotorGroup.spin(forward, lCmd, pct);
             RightMotorGroup.spin(forward, rCmd, pct);
         }
-
-
-
 
         bool needsUpdate = false;
 
@@ -230,16 +246,51 @@ void usercontrol() {
             armUpdateSimple();
         }
 
-        if (Controller1.ButtonL1.pressing()) {
-            runIntake(100); stopOutake();
-        } else if (Controller1.ButtonL2.pressing()) {
-            runIntake(100); runOutake(100);
+        //intakes stuff
+        if (Controller1.ButtonL1.pressing() || Controller1.ButtonL2.pressing()) {
+            runIntake(100);
         } else if (Controller1.ButtonR2.pressing()) {
-            reverseIntake(100); reverseOutake(100);
+            reverseIntake(100);
         } else {
-            stopIntake(); stopOutake();
+            stopIntake();
         }
 
+        const int outtakeBase = wings.isExtended() ? OUTTAKE_WINGS_UP_PCT : OUTTAKE_NORMAL_PCT;
+
+        double outtakeTarget = 0.0;
+        if (Controller1.ButtonL2.pressing()) {
+            outtakeTarget = +outtakeBase;   // outtake forward
+        } else if (Controller1.ButtonR2.pressing()) {
+            outtakeTarget = -outtakeBase;   // outtake reverse
+        } else {
+            outtakeTarget = 0.0;            // stop
+        }
+
+        // slew 
+        {
+            double delta = outtakeTarget - outtakeCmd;
+            bool increasingMag = (std::fabs(outtakeTarget) > std::fabs(outtakeCmd));
+            double rate = increasingMag ? OUTTAKE_ACCEL_PCT_PER_S : OUTTAKE_DECEL_PCT_PER_S;
+            double maxStep = rate * DT;
+
+            if (delta >  maxStep) delta =  maxStep;
+            if (delta < -maxStep) delta = -maxStep;
+
+            outtakeCmd += delta;
+        }
+
+        if (std::fabs(outtakeCmd) < 1.0) {
+            stopOutake();
+            outtakeCmd = 0.0;
+        } else if (outtakeCmd > 0) {
+            runOutake((int)std::fabs(outtakeCmd));
+        } else {
+            reverseOutake((int)std::fabs(outtakeCmd));
+        }
+
+
+
+        //screenTimer
         screenTimer += 20;
         const int screenPeriodMs = showOdom ? 200 : 2000;
 
