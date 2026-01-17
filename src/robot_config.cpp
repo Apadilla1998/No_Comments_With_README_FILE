@@ -18,7 +18,7 @@ motor_group RightMotorGroup(RightA, RightB, RightC);
 
 motor IntakeLeft(PORT16, ratio6_1, false);
 motor IntakeRight(PORT5, ratio6_1, true);
-motor Midtake(PORT8, ratio6_1, false);
+motor Midtake(PORT8, ratio18_1, false);
 
 motor RightOutake(PORT7, ratio6_1, true);
 motor LeftOutake(PORT2, ratio6_1, false);
@@ -40,7 +40,7 @@ namespace config {
 
     const double TRACKING_WHEEL_CIRCUMFERENCE_M = 0.05  * M_PI;
 
-    const double ARCADE_DEADBAND = 1.0;
+    const double ARCADE_DEADBAND = 0.0;
 
     const double SIDE_OFFSET_M = 0.0;
     const double VERT_OFFSET_M = 0.0;

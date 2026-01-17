@@ -1,4 +1,3 @@
-
 #include "manual.h"
 #include "robot_config.h"
 #include "subsystems.h"
@@ -9,15 +8,16 @@
 
 using namespace vex;
 
-//shit for the outtakes
-static const int OUTTAKE_NORMAL_PCT   = 50; 
-static const int OUTTAKE_WINGS_UP_PCT = 100;  
+//outtakes
+static const int OUTTAKE_NORMAL_PCT   = 50;
+static const int OUTTAKE_WINGS_UP_PCT = 100;
 
 static const double OUTTAKE_ACCEL_PCT_PER_S = 600.0;
 static const double OUTTAKE_DECEL_PCT_PER_S = 900.0;
 
-static double outtakeCmd = 0.0; 
+static double outtakeCmd = 0.0;
 
+//drivetrain
 static const double FWD_CURVE  = 0.1;
 static const double TURN_CURVE = 0.3;
 static const double LEFT_BIAS  = 0.98;
@@ -27,60 +27,69 @@ const double ACCEL_PCT_PER_S = 300.0;
 const double DECEL_PCT_PER_S = 300.0;
 const double DT = 0.02;
 
-static const double ARM_DOWN_DEG = 190.5;
-static const double ARM_UP_DEG   = 76.0;
+//arms
+static const double ARM_DOWN_DEG = 191;
+static const double ARM_UP_DEG   = 77;
 
-static const double ARM_MIN_PWR = 12.0;
-static const double ARM_MAX_PWR = 60.0;
+static const double ARM_MIN_PWR = 5.0; //increase it later
+static const double ARM_MAX_PWR = 80.0;
 
-static const double ARM_DEADBAND = 3.0;
+static const double ARM_DEADBAND = 2.0;
+
+static const double ARM_HARD_MARGIN_DEG = 2.0;
+static const double ARM_SOFT_ZONE_DEG   = 20.0; //lower it later
+static const double ARM_SOFT_MIN_SCALE = 0.10; //power
+
+static const double ARM_KP = 0.77; //it feels stable but slow increase
+static const double ARM_KD = 0.1; //if its fast but overshooting increase
 
 static double armTargetDeg = ARM_DOWN_DEG;
 static bool   armActive    = false;
 
+static double armPrevDeg   = 0.0;
+
+//drivetrain
 static double lCmd = 0.0;
 static double rCmd = 0.0;
 
-static void armUpdateSimple() {
+
+static void armUpdateFastSafe() {
     double currentDeg = Descore.angle(degrees);
+
+    const double safeUp   = ARM_UP_DEG   + ARM_HARD_MARGIN_DEG;
+    const double safeDown = ARM_DOWN_DEG - ARM_HARD_MARGIN_DEG;
+
+    armTargetDeg = clampD(armTargetDeg, safeUp, safeDown);
+
     double error = armTargetDeg - currentDeg;
 
-    if (currentDeg <= ARM_UP_DEG && error < 0) {
-        DescoreMotor.stop(hold);
-        return;
-    }
-    if (currentDeg >= ARM_DOWN_DEG && error > 0) {
-        DescoreMotor.stop(hold);
-        return;
-    }
+    if (currentDeg <= safeUp && error < 0) { DescoreMotor.stop(brake); return; }
+    if (currentDeg >= safeDown && error > 0) { DescoreMotor.stop(brake); return; }
 
-    double absErr = std::fabs(error);
+    if (std::fabs(error) < ARM_DEADBAND) { DescoreMotor.stop(hold); return; }
 
-    if (absErr < ARM_DEADBAND) {
-        DescoreMotor.stop(hold);
-        return;
-    }
+    const double velDegPerS = (currentDeg - armPrevDeg) / DT;
+    armPrevDeg = currentDeg;
 
-    double range = (ARM_DOWN_DEG - ARM_UP_DEG);
-    if (range < 1e-6) range = 1.0;
+    double out = (ARM_KP * error) - (ARM_KD * velDegPerS);
 
-    double pos = (currentDeg - ARM_UP_DEG) / range;
-    if (pos < 0.0) pos = 0.0;
-    if (pos > 1.0) pos = 1.0;
+    double distToUp   = currentDeg - safeUp;
+    double distToDown = safeDown - currentDeg;
+    double distNearest = std::min(distToUp, distToDown);
+    distNearest = clampD(distNearest, 0.0, 1e9);
 
-    double midFactor = 1.0 - 2.0 * std::fabs(pos - 0.5);
-    if (midFactor < 0.0) midFactor = 0.0;
+    double soft = clampD(distNearest / ARM_SOFT_ZONE_DEG, 0.0, 1.0);
 
-    midFactor = midFactor * midFactor;
+    double softCurve = soft * soft; //cubic slower
 
-    double mag = ARM_MIN_PWR + midFactor * (ARM_MAX_PWR - ARM_MIN_PWR);
+    double maxNow = ARM_MAX_PWR * (ARM_SOFT_MIN_SCALE + (1.0 - ARM_SOFT_MIN_SCALE) * softCurve);
 
-    double power = (error > 0) ? mag : -mag;
+    out = clampD(out, -maxNow, maxNow);
 
-    if (power >  100) power =  100;
-    if (power < -100) power = -100;
+    if (std::fabs(out) < ARM_MIN_PWR) out = (out > 0) ? ARM_MIN_PWR : -ARM_MIN_PWR;
 
-    DescoreMotor.spin(fwd, power, pct);
+    out = clampD(out, -100.0, 100.0);
+    DescoreMotor.spin(fwd, out, pct);
 }
 
 static double computeCurve(double inputPct, double curve) {
@@ -132,6 +141,8 @@ void usercontrol() {
     bool showOdom = false;
 
     double startAngle = Descore.angle(degrees);
+    armPrevDeg = startAngle;
+
     if (std::fabs(startAngle - ARM_UP_DEG) < std::fabs(startAngle - ARM_DOWN_DEG)) {
         armTargetDeg = ARM_UP_DEG;
     } else {
@@ -173,7 +184,7 @@ void usercontrol() {
             rCmd = 0.0;
 
             if (!wasNeutral) {
-                LeftMotorGroup.stop();   
+                LeftMotorGroup.stop();
                 RightMotorGroup.stop();
                 wasNeutral = true;
             }
@@ -243,10 +254,9 @@ void usercontrol() {
         prevRight = rightNow;
 
         if (armActive) {
-            armUpdateSimple();
+            armUpdateFastSafe();
         }
 
-        //intakes stuff
         if (Controller1.ButtonL1.pressing() || Controller1.ButtonL2.pressing()) {
             runIntake(100);
         } else if (Controller1.ButtonR2.pressing()) {
@@ -259,14 +269,13 @@ void usercontrol() {
 
         double outtakeTarget = 0.0;
         if (Controller1.ButtonL2.pressing()) {
-            outtakeTarget = +outtakeBase;   // outtake forward
+            outtakeTarget = +outtakeBase;
         } else if (Controller1.ButtonR2.pressing()) {
-            outtakeTarget = -outtakeBase;   // outtake reverse
+            outtakeTarget = -outtakeBase;
         } else {
-            outtakeTarget = 0.0;            // stop
+            outtakeTarget = 0.0;
         }
 
-        // slew 
         {
             double delta = outtakeTarget - outtakeCmd;
             bool increasingMag = (std::fabs(outtakeTarget) > std::fabs(outtakeCmd));
@@ -288,9 +297,6 @@ void usercontrol() {
             reverseOutake((int)std::fabs(outtakeCmd));
         }
 
-
-
-        //screenTimer
         screenTimer += 20;
         const int screenPeriodMs = showOdom ? 200 : 2000;
 

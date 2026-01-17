@@ -11,7 +11,9 @@ enum class AutonRoutine {
     SKILLS,
     TURN_TEST,
     DRIVE_TEST,
-    SQUARE_TEST
+    SQUARE_TEST,
+    AUTO_CORRECT_BLUE_RIGHT,
+    AUTO_CORRECT_RED_RIGHT
 };
 
 extern AutonRoutine selectedAuton;
