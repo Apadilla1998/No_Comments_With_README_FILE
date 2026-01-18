@@ -5,7 +5,7 @@
 
 using namespace vex;
 
-AutonRoutine selectedAuton = AutonRoutine::AUTO_CORRECT_BLUE_RIGHT;
+AutonRoutine selectedAuton = AutonRoutine::AUTO_CORRECT_BLUE_LEFT;
 
 static void blueRight() {
     MotionController m;
@@ -43,7 +43,7 @@ static void autoCorrectBlueRight() {
     wait(5, sec);  
 
     stopIntake();
-    m.driveAC(-0.40, 4000, 80);
+    m.driveAC(0.40, 4000, 80);
     wait(10, msec);
 
     m.turnBy(180, 4000);
@@ -66,14 +66,35 @@ static void autoCorrectBlueRight() {
     
 }
 
-static void autoCorrectRedRight(){
-
-}
-
-static void blueLeft(){
+static void autoCorrectRedLeft(){
     MotionController m;
+    m.setAutoCorrectEnabled(true);
 
+    m.driveAC(0.82, 4000, 80); //timeout and percentage
+    wait(10, vex::msec);
+
+    m.turnTo(90, 4000);
+    wait(10, vex::msec);
+
+    m.driveAC(0.30, 4000, 80);
+    wait(10, msec);
+
+    runIntake(100);
+    wait(5, sec);  
+
+    stopIntake();
+    m.driveAC(-0.40, 4000, 80);
+    wait(10, msec);
+
+    m.turnBy(180, 4000);
+    wait(10, msec);
 }
+
+static void autoCorrectBlueLeft() {}
+
+static void autoCorrectRedRight(){}
+
+static void blueLeft(){}
 
 void runAutonomous() {
     switch (selectedAuton) {
@@ -84,7 +105,9 @@ void runAutonomous() {
         case AutonRoutine::BLUE_LEFT:  blueLeft(); break;
         case AutonRoutine::BLUE_RIGHT:  blueRight(); break;
         case AutonRoutine::AUTO_CORRECT_BLUE_RIGHT: autoCorrectBlueRight(); break;
+        case AutonRoutine::AUTO_CORRECT_BLUE_LEFT: autoCorrectBlueLeft(); break;
         case AutonRoutine::AUTO_CORRECT_RED_RIGHT: autoCorrectRedRight(); break;
+        case AutonRoutine::AUTO_CORRECT_RED_LEFT: autoCorrectRedLeft(); break;
         case AutonRoutine::SKILLS:     //skills(); break;
         default: break;
     }

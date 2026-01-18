@@ -13,7 +13,9 @@ enum class AutonRoutine {
     DRIVE_TEST,
     SQUARE_TEST,
     AUTO_CORRECT_BLUE_RIGHT,
-    AUTO_CORRECT_RED_RIGHT
+    AUTO_CORRECT_BLUE_LEFT,
+    AUTO_CORRECT_RED_RIGHT,
+    AUTO_CORRECT_RED_LEFT
 };
 
 extern AutonRoutine selectedAuton;
