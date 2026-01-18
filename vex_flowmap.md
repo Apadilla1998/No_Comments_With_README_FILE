@@ -1,150 +1,78 @@
-# VEX V5 Robotics Codebase Flowmap
+# VEX Robotics - Algorithm Flowmap
 
 ```mermaid
-flowchart TB
-    subgraph Entry["Program Entry"]
-        main["main.cpp"]
-        main -->|"Competition.autonomous()"| autoCallback["autonomous()"]
-        main -->|"Competition.drivercontrol()"| driverCallback["usercontrol()"]
-        main -->|"Initialize"| preAuton["pre_auton()"]
+flowchart LR
+    subgraph Odometry["Odometry (10ms)"]
+        direction TB
+        enc["Δvertical, Δhorizontal"] --> arc["Arc Integration"]
+        imu["IMU Δθ"] --> arc
+        arc --> pose["x += Δs·sin(θ)<br/>y += Δs·cos(θ)"]
     end
 
-    subgraph PreAuton["Pre-Autonomous Setup"]
-        preAuton --> initSensors["initSensors()"]
-        preAuton --> resetOdom["resetOdometry()"]
-        preAuton --> startTasks["Start Tasks"]
-        startTasks --> odomTask["odomTask 10ms"]
-        startTasks --> sorterTask["intakeTaskFn()"]
+    subgraph PID["PID Controller"]
+        direction TB
+        err["error = setpoint - measured"] --> P["P = Kp·error"]
+        err --> I["I += Ki·error·dt"]
+        err --> D["D = Kd·(filtered dError/dt)"]
+        P & I & D --> sum["output = P + I + D"]
+        sum --> clamp["clamp(outMin, outMax)"]
+        clamp --> aw["Anti-windup backtrack"]
     end
 
-    subgraph Autonomous["Autonomous Mode"]
-        autoCallback --> runAuton["runAutonomous()"]
-        runAuton -->|"switch"| autonSelect{Routine?}
-        autonSelect --> blueRight["blueRight()"]
-        autonSelect --> acBlueRight["autoCorrectBlueRight()"]
-        autonSelect --> acRedLeft["autoCorrectRedLeft()"]
-        autonSelect --> otherAutons["...others"]
+    subgraph Motion["Motion Control"]
+        direction TB
+        drive["drive()"] --> distPID["distPID → velocity"]
+        drive --> headPID["headPID → correction"]
+        distPID & headPID --> tank["tank(v+w, v-w)"]
         
-        blueRight --> MC
-        acBlueRight --> MC
-        acRedLeft --> MC
+        turn["turnTo/By()"] --> turnPID["turnPID → rotation"]
+        turnPID --> tankTurn["tank(out, -out)"]
+        
+        ac["autoCorrect()"] --> decomp["Decompose error<br/>fwd = Δx·sin(h) + Δy·cos(h)<br/>lat = Δx·cos(h) - Δy·sin(h)"]
+        decomp --> correct["turnTo → drive → turnTo"]
     end
 
-    subgraph MotionControl["Motion Controller"]
-        MC["MotionController"]
-        MC --> drive["drive()"]
-        MC --> turnTo["turnTo()"]
-        MC --> turnBy["turnBy()"]
-        MC --> autoCorrect["autoCorrect()"]
-        
-        MC --> driveAC["driveAC()"]
-        MC --> turnToAC["turnToAC()"]
-        MC --> turnByAC["turnByAC()"]
-        
-        driveAC --> drive
-        driveAC --> autoCorrect
-        turnToAC --> turnTo
-        turnToAC --> autoCorrect
-        turnByAC --> turnBy
-        turnByAC --> autoCorrect
-        autoCorrect --> drive
-        autoCorrect --> turnTo
+    subgraph Driver["Driver Input"]
+        direction TB
+        joy["joystick %"] --> curve["curve = c·v³ + (1-c)·v"]
+        curve --> dead["deadband < 5% → 0"]
+        dead --> slew["slew: Δ ≤ rate·dt"]
+        slew --> bias["L×0.98, R×1.0"]
     end
 
-    subgraph PID["PID Controllers"]
-        distPID["distPID_"]
-        headPID["headPID_"]
-        turnPID["turnPID_"]
-        
-        drive --> distPID
-        drive --> headPID
-        turnTo --> turnPID
-        turnBy --> turnPID
+    subgraph Arm["Arm Control"]
+        direction TB
+        armErr["error = target - angle"] --> armPD["PD = Kp·err - Kd·velocity"]
+        armPD --> soft["Soft limit scaling<br/>near edges → reduce power"]
+        soft --> hard["Hard limit cutoff"]
     end
 
-    subgraph DriveLayer["Drive Functions"]
-        tankDrive["tankDrive()"]
-        stopDrive["stopDrive()"]
-        
-        drive --> tankDrive
-        turnTo --> tankDrive
-        turnBy --> tankDrive
-        drive --> stopDrive
-        turnTo --> stopDrive
-        turnBy --> stopDrive
+    subgraph Sort["Ball Sorting"]
+        direction TB
+        hue["optical hue"] --> median["median filter (5 samples)"]
+        median --> check{"red<20 or >340?<br/>blue 200-250?"}
+        check -->|"wrong alliance"| eject["reverse 300ms"]
     end
 
-    subgraph Manual["Driver Control"]
-        driverCallback --> userLoop["usercontrol() 20ms loop"]
-        
-        userLoop --> joystick["Joystick Input"]
-        joystick --> curves["Exp Curves"]
-        curves --> slew["Slew Rate"]
-        slew --> tankDrive
-        
-        userLoop --> buttons["Button Handlers"]
-        buttons --> R1["R1: Speed Toggle"]
-        buttons --> Up["Up: Wings"]
-        buttons --> X["X: Reset Odom"]
-        buttons --> Y["Y: Odom Display"]
-        buttons --> LR["L/R: Arm"]
-        
-        userLoop --> armCtrl["Arm PD Control"]
-    end
-
-    subgraph Subsystems["Subsystems"]
-        wings["Wings"]
-        intake["Intake"]
-        outtake["Outtake"]
-        
-        userLoop --> wings
-        userLoop --> intake
-        userLoop --> outtake
-        acBlueRight --> intake
-        acBlueRight --> outtake
-        acBlueRight --> wings
-    end
-
-    subgraph Odometry["Odometry"]
-        odomTask --> odomLoop["odomLoop()"]
-        odomLoop --> robotPose["robotPose {x,y,θ}"]
-        robotPose --> autoCorrect
-        robotPose --> driveAC
-    end
-
-    subgraph BallSort["Ball Sorting"]
-        sorterTask --> sortLoop["Color Detection"]
-        sortLoop -->|"Wrong color"| eject["Eject"]
-        eject --> intake
-        eject --> outtake
-    end
-
-    subgraph Hardware["Hardware"]
-        motors["Motors"]
-        sensors["Sensors"]
-        pneum["Pneumatics"]
-        
-        tankDrive --> motors
-        armCtrl --> motors
-        intake --> motors
-        outtake --> motors
-        wings --> pneum
-        odomLoop --> sensors
-        sortLoop --> sensors
-    end
+    Odometry --> Motion
+    PID --> Motion
+    PID --> Arm
+    Driver --> Motors["Motors"]
+    Motion --> Motors
+    Arm --> Motors
+    Sort --> Motors
 ```
 
-## Module Descriptions
+## Key Algorithms
 
-| Module | File | Purpose |
-|--------|------|---------|
-| Entry | `main.cpp` | Competition callbacks, main loop |
-| Pre-Auton | `pre_auton.cpp` | Sensor init, start background tasks |
-| Autonomous | `autons.cpp` | Match routines |
-| Motion | `motion.cpp` | PID-based movement functions |
-| Drive | `drive.cpp` | Low-level motor commands |
-| Manual | `manual.cpp` | Driver control loop |
-| Odometry | `odom.cpp` | Position tracking |
-| Subsystems | `subsystems.cpp` | Wings, intake, outtake |
-| Config | `robot_config.cpp` | Hardware definitions |
-| PID | `PID.h` | Reusable PID controller class |
+| Algorithm | Formula/Logic |
+|-----------|---------------|
+| **Exponential Curve** | `out = c·v³ + (1-c)·v` where c=0.1 fwd, 0.3 turn |
+| **Slew Rate** | `Δcmd ≤ 300%/s · dt` (accel/decel limited) |
+| **Arc Odometry** | `chord = 2·sin(Δθ/2)`, integrate local→global |
+| **PID** | `P + I + D` with derivative filter τ=0.05-0.10s |
+| **Anti-windup** | Back-calculate integral on saturation |
+| **Heading Hold** | Maintain heading during straight drive |
+| **Auto-correct** | Decompose XY error into fwd/lateral, correct iteratively |
+| **Arm Soft Limits** | `maxPower *= (dist/zone)²` near boundaries |
+| **Ball Sort** | Median-filtered hue, alliance-based rejection |
