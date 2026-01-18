@@ -5,7 +5,7 @@
 
 using namespace vex;
 
-AutonRoutine selectedAuton = AutonRoutine::AUTO_CORRECT_BLUE_LEFT;
+AutonRoutine selectedAuton = AutonRoutine::AUTO_CORRECT_BLUE_RIGHT;
 
 static void blueRight() {
     MotionController m;
@@ -30,40 +30,40 @@ static void autoCorrectBlueRight() {
     MotionController m;
     m.setAutoCorrectEnabled(true);
 
-    m.driveAC(0.82, 4000, 80); //timeout and percentage
+    m.drive(0.885, 5200, 90); //timeout and percentage
     wait(10, vex::msec);
 
-    m.turnTo(90, 4000);
+    m.turnTo(90, 5000);
     wait(10, vex::msec);
 
-    m.driveAC(0.30, 4000, 80);
+    runIntake(100);
+    m.drive(0.380, 5000, 90); //was 0.365
     wait(10, msec);
 
     runIntake(100);
-    wait(5, sec);  
+    wait(1.0, sec);
+
+    m.drive(-0.3, 4500, 90);
+    m.turnBy(182, 6000); //was 173
+    wait(10, msec);
 
     stopIntake();
-    m.driveAC(0.40, 4000, 80);
-    wait(10, msec);
-
-    m.turnBy(180, 4000);
-    wait(10, msec);
-
-    // m.turnTo(90, 4000);
-    // wait(10, msec);
-
     wings.toggle();
-    m.driveAC(0.40, 4000, 80);
+    m.drive(0.590, 5000, 90); //was 0.557
     wait(10, msec);
 
     runIntake(100);
     runOutake(100);
-    wait(2000, msec);
+    wait(4, sec);
 
     stopIntake();
     stopOutake();
     wait(10, msec);
-    
+
+    m.drive(-0.20, 5000, 90);
+    m.turnBy(180, 5000);
+    wait(10, msec);
+
 }
 
 static void autoCorrectRedLeft(){
@@ -77,17 +77,16 @@ static void autoCorrectRedLeft(){
     wait(10, vex::msec);
 
     m.driveAC(0.30, 4000, 80);
+    wait(5000, msec);
+
+    // runIntake(100);
+    // wait(5, sec);  
+
+    // stopIntake();
+    m.driveHeadingAC(-0.05, 4000, 80, 90); //tmeour, speed pct, angle to hold
     wait(10, msec);
 
-    runIntake(100);
-    wait(5, sec);  
 
-    stopIntake();
-    m.driveAC(-0.40, 4000, 80);
-    wait(10, msec);
-
-    m.turnBy(180, 4000);
-    wait(10, msec);
 }
 
 static void autoCorrectBlueLeft() {}

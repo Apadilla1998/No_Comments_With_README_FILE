@@ -9,7 +9,7 @@
 using namespace vex;
 
 //outtakes
-static const int OUTTAKE_NORMAL_PCT   = 50;
+static const int OUTTAKE_NORMAL_PCT   = 40;
 static const int OUTTAKE_WINGS_UP_PCT = 100;
 
 static const double OUTTAKE_ACCEL_PCT_PER_S = 600.0;
@@ -18,18 +18,18 @@ static const double OUTTAKE_DECEL_PCT_PER_S = 900.0;
 static double outtakeCmd = 0.0;
 
 //drivetrain
-static const double FWD_CURVE  = 0.1;
-static const double TURN_CURVE = 0.3;
-static const double LEFT_BIAS  = 0.98;
+static const double FWD_CURVE  = 0.2;
+static const double TURN_CURVE = 0.285;
+static const double LEFT_BIAS  = 0.945;
 static const double RIGHT_BIAS = 1.0;
 
-const double ACCEL_PCT_PER_S = 300.0;
-const double DECEL_PCT_PER_S = 300.0;
-const double DT = 0.02;
+const double ACCEL_PCT_PER_S = 350.0;
+const double DECEL_PCT_PER_S = 290.0;
+const double DT = 0.03;
 
 //arms
-static const double ARM_DOWN_DEG = 191;
-static const double ARM_UP_DEG   = 77;
+static const double ARM_DOWN_DEG = 166;
+static const double ARM_UP_DEG   = 52;
 
 static const double ARM_MIN_PWR = 5.0; //increase it later
 static const double ARM_MAX_PWR = 80.0;
@@ -37,11 +37,11 @@ static const double ARM_MAX_PWR = 80.0;
 static const double ARM_DEADBAND = 2.0;
 
 static const double ARM_HARD_MARGIN_DEG = 2.0;
-static const double ARM_SOFT_ZONE_DEG   = 20.0; //lower it later
-static const double ARM_SOFT_MIN_SCALE = 0.10; //power
+static const double ARM_SOFT_ZONE_DEG   = 10.0; //lower it later
+static const double ARM_SOFT_MIN_SCALE = 0.20; //power
 
-static const double ARM_KP = 0.77; //it feels stable but slow increase
-static const double ARM_KD = 0.1; //if its fast but overshooting increase
+static const double ARM_KP = 0.83; //it feels stable but slow increase was 0.77
+static const double ARM_KD = 0.15; //if its fast but overshooting increase was 0.1
 
 static double armTargetDeg = ARM_DOWN_DEG;
 static bool   armActive    = false;
@@ -49,8 +49,8 @@ static bool   armActive    = false;
 static double armPrevDeg   = 0.0;
 
 //drivetrain
-static double lCmd = 0.0;
-static double rCmd = 0.0;
+static double lCmd = 0.015;
+static double rCmd = 0.015;
 
 
 static void armUpdateFastSafe() {
@@ -298,7 +298,7 @@ void usercontrol() {
         }
 
         screenTimer += 20;
-        const int screenPeriodMs = showOdom ? 200 : 2000;
+        const int screenPeriodMs = showOdom ? 200 : 4000;
 
         if (needsUpdate || screenTimer >= screenPeriodMs) {
             updateControllerScreen(isFast, showOdom);

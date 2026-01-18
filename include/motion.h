@@ -2,40 +2,44 @@
 #ifndef MOTION_H
 #define MOTION_H
 
-#include "vex.h"
 #include "PID.h"
 
 class MotionController {
 public:
     MotionController();
 
-    double wrap180(double a);
-    double angleDiffDeg(double targetDeg, double currentDeg);
+    void setAutoCorrectEnabled(bool enabled) { autoCorrectEnabled_ = enabled; }
+    bool isAutoCorrectEnabled() const { return autoCorrectEnabled_; }
 
-    void drive(double distM, int timeoutMs, double maxSpeedPct = 80.0);
-    void turnTo(double targetDeg, int timeoutMs);
-    void turnBy(double deltaDeg, int timeoutMs);
+    static double wrap180(double a);
+    static double angleDiffDeg(double targetDeg, double currentDeg);
+
+    void drive(double distM, int timeoutMs = 4000, double maxSpeedPct = 80.0);
+    void driveHeading(double distM, int timeoutMs, double maxSpeedPct, double holdHeadingDeg);
+
+    void turnTo(double targetDeg, int timeoutMs = 4000);
+    void turnBy(double deltaDeg, int timeoutMs = 4000);
 
     void autoCorrect(double targetX, double targetY, double targetHeadingDeg,
-                     int timeoutMs, double maxSpeedPct = 45.0);
+                     int timeoutMs = 900, double maxSpeedPct = 30.0);
 
-    void driveAC(double distM, int timeoutMs, double maxSpeedPct = 80.0,
-                 int correctTimeoutMs = 1200, double correctSpeedPct = 45.0);
+    void driveAC(double distM, int timeoutMs = 4000, double maxSpeedPct = 80.0,
+                 int correctTimeoutMs = 900, double correctSpeedPct = 30.0);
 
-    void turnToAC(double targetDeg, int timeoutMs,
-                  int correctTimeoutMs = 900, double correctSpeedPct = 40.0);
+    void driveHeadingAC(double distM, int timeoutMs, double maxSpeedPct, double holdHeadingDeg,
+                        int correctTimeoutMs = 900, double correctSpeedPct = 30.0);
 
-    void turnByAC(double deltaDeg, int timeoutMs,
-                  int correctTimeoutMs = 900, double correctSpeedPct = 40.0);
+    void turnToAC(double targetDeg, int timeoutMs = 4000,
+                  int correctTimeoutMs = 900, double correctSpeedPct = 30.0);
 
-    void setAutoCorrectEnabled(bool en) { autoCorrectEnabled_ = en; }
-    bool getAutoCorrectEnabled() const { return autoCorrectEnabled_; }
+    void turnByAC(double deltaDeg, int timeoutMs = 4000,
+                  int correctTimeoutMs = 900, double correctSpeedPct = 30.0);
 
 private:
     PID distPID_;
     PID headPID_;
     PID turnPID_;
-    bool autoCorrectEnabled_ = true;
+    bool autoCorrectEnabled_ = false;
 };
 
 #endif
