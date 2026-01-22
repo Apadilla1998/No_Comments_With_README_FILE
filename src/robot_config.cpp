@@ -32,7 +32,6 @@ rotation horizontalRot(PORT6, false);
 
 optical ballSensor(PORT21);
 
-pot Descore(Brain.ThreeWirePort.A);
 motor DescoreMotor(PORT18, ratio36_1, true);
 
 namespace config {

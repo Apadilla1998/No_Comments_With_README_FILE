@@ -36,6 +36,10 @@ void runOutake(double speedPct = 100.0);
 void reverseOutake(double speedPct = 100.0);
 void stopOutake();
 
+void moveArmRight(double speedPct = 100.0);
+void moveArmLeft(double speedPct = 100.0);
+void stopArm();
+
 int intakeTaskFn();
 
 #endif

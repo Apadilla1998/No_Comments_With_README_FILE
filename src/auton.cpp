@@ -44,7 +44,7 @@ static void autoCorrectBlueRight() {
     wait(1.0, sec);
 
     m.drive(-0.3, 4500, 90);
-    m.turnBy(182, 6000); //was 173
+    m.turnBy(175, 5500); //was 173 all issues start here
     wait(10, msec);
 
     stopIntake();

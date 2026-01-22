@@ -27,70 +27,10 @@ const double ACCEL_PCT_PER_S = 350.0;
 const double DECEL_PCT_PER_S = 290.0;
 const double DT = 0.03;
 
-//arms
-static const double ARM_DOWN_DEG = 166;
-static const double ARM_UP_DEG   = 52;
-
-static const double ARM_MIN_PWR = 5.0; //increase it later
-static const double ARM_MAX_PWR = 80.0;
-
-static const double ARM_DEADBAND = 2.0;
-
-static const double ARM_HARD_MARGIN_DEG = 2.0;
-static const double ARM_SOFT_ZONE_DEG   = 10.0; //lower it later
-static const double ARM_SOFT_MIN_SCALE = 0.20; //power
-
-static const double ARM_KP = 0.83; //it feels stable but slow increase was 0.77
-static const double ARM_KD = 0.15; //if its fast but overshooting increase was 0.1
-
-static double armTargetDeg = ARM_DOWN_DEG;
-static bool   armActive    = false;
-
-static double armPrevDeg   = 0.0;
-
 //drivetrain
 static double lCmd = 0.015;
 static double rCmd = 0.015;
 
-
-static void armUpdateFastSafe() {
-    double currentDeg = Descore.angle(degrees);
-
-    const double safeUp   = ARM_UP_DEG   + ARM_HARD_MARGIN_DEG;
-    const double safeDown = ARM_DOWN_DEG - ARM_HARD_MARGIN_DEG;
-
-    armTargetDeg = clampD(armTargetDeg, safeUp, safeDown);
-
-    double error = armTargetDeg - currentDeg;
-
-    if (currentDeg <= safeUp && error < 0) { DescoreMotor.stop(brake); return; }
-    if (currentDeg >= safeDown && error > 0) { DescoreMotor.stop(brake); return; }
-
-    if (std::fabs(error) < ARM_DEADBAND) { DescoreMotor.stop(hold); return; }
-
-    const double velDegPerS = (currentDeg - armPrevDeg) / DT;
-    armPrevDeg = currentDeg;
-
-    double out = (ARM_KP * error) - (ARM_KD * velDegPerS);
-
-    double distToUp   = currentDeg - safeUp;
-    double distToDown = safeDown - currentDeg;
-    double distNearest = std::min(distToUp, distToDown);
-    distNearest = clampD(distNearest, 0.0, 1e9);
-
-    double soft = clampD(distNearest / ARM_SOFT_ZONE_DEG, 0.0, 1.0);
-
-    double softCurve = soft * soft; //cubic slower
-
-    double maxNow = ARM_MAX_PWR * (ARM_SOFT_MIN_SCALE + (1.0 - ARM_SOFT_MIN_SCALE) * softCurve);
-
-    out = clampD(out, -maxNow, maxNow);
-
-    if (std::fabs(out) < ARM_MIN_PWR) out = (out > 0) ? ARM_MIN_PWR : -ARM_MIN_PWR;
-
-    out = clampD(out, -100.0, 100.0);
-    DescoreMotor.spin(fwd, out, pct);
-}
 
 static double computeCurve(double inputPct, double curve) {
     double v = inputPct / 100.0;
@@ -109,13 +49,11 @@ static void updateControllerScreen(bool isFast, bool showOdom) {
     Controller1.Screen.clearLine(3);
 
     if (!showOdom) {
-        Controller1.Screen.setCursor(1, 1);
-        Controller1.Screen.print("A:%.0f  T:%.0f", Descore.angle(degrees), armTargetDeg);
 
-        Controller1.Screen.setCursor(2, 1);
+        Controller1.Screen.setCursor(1, 1);
         Controller1.Screen.print("SPEED: %s", isFast ? "FAST" : "SLOW");
 
-        Controller1.Screen.setCursor(3, 1);
+        Controller1.Screen.setCursor(2, 1);
         Controller1.Screen.print("WINGS: %s", wings.isExtended() ? "UP" : "DOWN");
     } else {
         const double x_cm  = robotPose.x * 100.0;
@@ -134,20 +72,11 @@ static void updateControllerScreen(bool isFast, bool showOdom) {
 void usercontrol() {
     bool prevR1 = false, prevUp = false, prevX = false, prevY = false;
 
-    bool prevLeft  = Controller1.ButtonLeft.pressing();
-    bool prevRight = Controller1.ButtonRight.pressing();
+    // bool prevLeft  = Controller1.ButtonLeft.pressing();
+    // bool prevRight = Controller1.ButtonRight.pressing();
 
     bool isFast = true;
     bool showOdom = false;
-
-    double startAngle = Descore.angle(degrees);
-    armPrevDeg = startAngle;
-
-    if (std::fabs(startAngle - ARM_UP_DEG) < std::fabs(startAngle - ARM_DOWN_DEG)) {
-        armTargetDeg = ARM_UP_DEG;
-    } else {
-        armTargetDeg = ARM_DOWN_DEG;
-    }
 
     int screenTimer = 0;
     updateControllerScreen(isFast, showOdom);
@@ -230,32 +159,7 @@ void usercontrol() {
         }
         prevY = y;
 
-        bool leftNow  = Controller1.ButtonLeft.pressing();
-        bool rightNow = Controller1.ButtonRight.pressing();
-
-        if ((leftNow != prevLeft) || (rightNow != prevRight)) {
-            needsUpdate = true;
-        }
-
-        if (leftNow && !rightNow) {
-            armTargetDeg = ARM_UP_DEG;
-            armActive = true;
-        }
-        else if (rightNow && !leftNow) {
-            armTargetDeg = ARM_DOWN_DEG;
-            armActive = true;
-        }
-        else {
-            armActive = false;
-            DescoreMotor.stop(hold);
-        }
-
-        prevLeft  = leftNow;
-        prevRight = rightNow;
-
-        if (armActive) {
-            armUpdateFastSafe();
-        }
+       
 
         if (Controller1.ButtonL1.pressing() || Controller1.ButtonL2.pressing()) {
             runIntake(100);
@@ -264,6 +168,15 @@ void usercontrol() {
         } else {
             stopIntake();
         }
+
+        if(Controller1.ButtonLeft.pressing()){
+            moveArmLeft(25);
+        }
+        else if(Controller1.ButtonRight.pressing()){
+            moveArmRight(25);
+        }
+        else
+            stopArm();
 
         const int outtakeBase = wings.isExtended() ? OUTTAKE_WINGS_UP_PCT : OUTTAKE_NORMAL_PCT;
 

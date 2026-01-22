@@ -51,6 +51,18 @@ void stopOutake() {
     MidOutake.stop(coast);
 }
 
+void moveArmRight(double speedPct){
+    DescoreMotor.spin(fwd, speedPct, pct);
+}
+
+void moveArmLeft(double speedPct){
+    DescoreMotor.spin(reverse, speedPct, pct);
+}
+
+void stopArm(){
+    DescoreMotor.stop(hold);
+}
+
 static double filteredHue() {
     static std::vector<double> buf;
     buf.push_back(ballSensor.hue());
