@@ -30,14 +30,14 @@ double MotionController::angleDiffDeg(double targetDeg, double currentDeg) {
 }
 
 MotionController::MotionController()
-    : distPID_(0.38, 0.0, 0.0041),
-      headPID_(0.22, 0.0, 0.001),
-      turnPID_(0.22, 0.0, 0.001)
+    : distPID_(5, 3.0, 0.004),
+      headPID_(0.25, 0.001, 0.001),
+      turnPID_(0.25, 0.001, 0.001)
 {
     distPID_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
     distPID_.setDerivativeFilterTf(0.10);
     distPID_.setAntiWindupTau(0.15);
-    distPID_.setErrorDeadband(0.010);
+    distPID_.setErrorDeadband(0.006);
     distPID_.setOutputLimits(-100, 100);
 
     headPID_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
@@ -75,10 +75,10 @@ void MotionController::driveHeading(double distM, int timeoutMs, double maxSpeed
     int stopHoldMs = 0;
 
     const double minCap = 10.0;
-    const double stopBand = 0.015;
+    const double stopBand = 0.020;
 
-    const double stopEnter = 0.030;
-    const double stopExit  = 0.055;
+    const double stopEnter = 0.010;
+    const double stopExit  = 0.020;
     const int stopSettleMs = 120;
 
     bool stopLatch = false;

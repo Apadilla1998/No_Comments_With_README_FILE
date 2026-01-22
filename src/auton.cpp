@@ -30,39 +30,39 @@ static void autoCorrectBlueRight() {
     MotionController m;
     m.setAutoCorrectEnabled(true);
 
-    m.drive(0.885, 5200, 90); //timeout and percentage
+    m.drive(0.80, 7200, 100); //timeout and percentage
     wait(10, vex::msec);
 
-    m.turnTo(90, 5000);
-    wait(10, vex::msec);
+    // m.turnTo(90, 7000);
+    // wait(10, vex::msec);
 
-    runIntake(100);
-    m.drive(0.380, 5000, 90); //was 0.365
-    wait(10, msec);
+    // runIntake(100);
+    // m.drive(0.380, 5000, 90); //was 0.365
+    // wait(10, msec);
 
-    runIntake(100);
-    wait(1.0, sec);
+    // runIntake(100);
+    // wait(1.0, sec);
 
-    m.drive(-0.3, 4500, 90);
-    m.turnBy(175, 5500); //was 173 all issues start here
-    wait(10, msec);
+    // m.drive(-0.3, 4500, 90);
+    // m.turnBy(175, 5500); //was 173 all issues start here
+    // wait(10, msec);
 
-    stopIntake();
-    wings.toggle();
-    m.drive(0.590, 5000, 90); //was 0.557
-    wait(10, msec);
+    // stopIntake();
+    // wings.toggle();
+    // m.drive(0.590, 5000, 90); //was 0.557
+    // wait(10, msec);
 
-    runIntake(100);
-    runOutake(100);
-    wait(4, sec);
+    // runIntake(100);
+    // runOutake(100);
+    // wait(4, sec);
 
-    stopIntake();
-    stopOutake();
-    wait(10, msec);
+    // stopIntake();
+    // stopOutake();
+    // wait(10, msec);
 
-    m.drive(-0.20, 5000, 90);
-    m.turnBy(180, 5000);
-    wait(10, msec);
+    // m.drive(-0.20, 5000, 90);
+    // m.turnBy(180, 5000);
+    // wait(10, msec);
 
 }
 
