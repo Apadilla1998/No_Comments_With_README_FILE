@@ -18,12 +18,6 @@ static void blueRight() {
 
     m.drive(0.29, 5000, 80);
     wait(10, msec);
-
-    // runIntake(100);
-    // wait(1, sec);
-
-    // stopIntake();
-    // wait(10, msec);
 }
 
 static void autoCorrectBlueRight() {

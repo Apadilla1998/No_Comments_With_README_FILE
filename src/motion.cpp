@@ -1,3 +1,4 @@
+// motion.cpp
 #include "motion.h"
 #include "drive.h"
 #include "robot_config.h"
@@ -20,7 +21,7 @@ static inline double norm360(double a) {
 }
 
 double MotionController::wrap180(double a) {
-    while (a > 180.0)  a -= 360.0;
+    while (a > 180.0) a -= 360.0;
     while (a <= -180.0) a += 360.0;
     return a;
 }
@@ -30,7 +31,7 @@ double MotionController::angleDiffDeg(double targetDeg, double currentDeg) {
 }
 
 MotionController::MotionController()
-    : distPID_(5, 3.0, 0.004),
+    : distPID_(0.38, 0.0, 0.0041),
       headPID_(0.25, 0.001, 0.001),
       turnPID_(0.25, 0.001, 0.001)
 {
@@ -75,10 +76,10 @@ void MotionController::driveHeading(double distM, int timeoutMs, double maxSpeed
     int stopHoldMs = 0;
 
     const double minCap = 10.0;
-    const double stopBand = 0.020;
+    const double stopBand = 0.015;
 
-    const double stopEnter = 0.010;
-    const double stopExit  = 0.020;
+    const double stopEnter = 0.030;
+    const double stopExit  = 0.055;
     const int stopSettleMs = 120;
 
     bool stopLatch = false;
@@ -194,6 +195,88 @@ void MotionController::driveHeading(double distM, int timeoutMs, double maxSpeed
 
 void MotionController::drive(double distM, int timeoutMs, double maxSpeedPct) {
     driveHeading(distM, timeoutMs, maxSpeedPct, inertial_sensor.heading(deg));
+}
+
+void MotionController::driveHeadingCC(double distM, int timeoutMs, double maxSpeedPct, double holdHeadingDeg) {
+    const double holdHead = norm360(holdHeadingDeg);
+    const double hRad = degToRad(holdHead);
+
+    Pose s = robotPose;
+    const double gx = s.x + distM * std::sin(hRad);
+    const double gy = s.y + distM * std::cos(hRad);
+
+    distPID_.setSetpoint(0.0);
+    distPID_.resetBumpless(0.0, 0.0);
+
+    headPID_.setSetpoint(0.0);
+    headPID_.resetBumpless(0.0, 0.0);
+
+    const int dtMs = 10;
+    const double dt = dtMs / 1000.0;
+
+    const double lookaheadM = 0.20;
+    const double maxOffDeg = 18.0;
+
+    const double posTolM = 0.02;
+    const double latTolM = 0.015;
+    const double angTolDeg = 1.5;
+
+    timer t; t.reset();
+    int settledMs = 0;
+
+    double vCmd = 0.0;
+    const double dvPerSec = 160.0;
+    const double dvMax = dvPerSec * dt;
+
+    double wCmd = 0.0;
+    const double dwPerSec = 260.0;
+    const double dwMax = dwPerSec * dt;
+
+    while (t.time(msec) < timeoutMs) {
+        const double dx = gx - robotPose.x;
+        const double dy = gy - robotPose.y;
+
+        double fwd = dx * std::sin(hRad) + dy * std::cos(hRad);
+        double lat = dx * std::cos(hRad) - dy * std::sin(hRad);
+
+        distPID_.setOutputLimits(-maxSpeedPct, maxSpeedPct);
+        double v = distPID_.update(-fwd, dt);
+
+        double offDeg = radToDeg(std::atan2(lat, lookaheadM));
+        offDeg = clampD(offDeg, -maxOffDeg, +maxOffDeg);
+
+        const double desiredHead = norm360(holdHead + offDeg);
+        const double currHead = inertial_sensor.heading(deg);
+        const double headErr = angleDiffDeg(desiredHead, currHead);
+
+        double w = headPID_.update(-headErr, dt);
+
+        const double vAbs = std::fabs(v);
+        double wScale = std::min(1.0, vAbs / 18.0);
+        wScale = std::max(wScale, 0.25);
+        if (vAbs < 12.0 && std::fabs(headErr) > 2.0) wScale = std::max(wScale, 0.22);
+        w *= wScale;
+
+        vCmd += clampD(v - vCmd, -dvMax, dvMax);
+        wCmd += clampD(w - wCmd, -dwMax, dwMax);
+
+        tankDrive(vCmd + wCmd, vCmd - wCmd);
+
+        if (std::fabs(fwd) < posTolM && std::fabs(lat) < latTolM && std::fabs(headErr) < angTolDeg) {
+            settledMs += dtMs;
+            if (settledMs >= 80) break;
+        } else {
+            settledMs = 0;
+        }
+
+        wait(dtMs, msec);
+    }
+
+    stopDrive(brake);
+}
+
+void MotionController::driveCC(double distM, int timeoutMs, double maxSpeedPct) {
+    driveHeadingCC(distM, timeoutMs, maxSpeedPct, inertial_sensor.heading(deg));
 }
 
 void MotionController::turnTo(double targetDeg, int timeoutMs) {
@@ -414,8 +497,9 @@ void MotionController::driveAC(double distM, int timeoutMs, double maxSpeedPct,
 
     drive(distM, timeoutMs, maxSpeedPct);
 
-    double gx = s.x + distM * std::sin(s.theta);
-    double gy = s.y + distM * std::cos(s.theta);
+    const double h = degToRad(holdHead);
+    double gx = s.x + distM * std::sin(h);
+    double gy = s.y + distM * std::cos(h);
 
     autoCorrect(gx, gy, holdHead, correctTimeoutMs, correctSpeedPct);
 }
@@ -431,8 +515,9 @@ void MotionController::driveHeadingAC(double distM, int timeoutMs, double maxSpe
 
     driveHeading(distM, timeoutMs, maxSpeedPct, holdHeadingDeg);
 
-    double gx = s.x + distM * std::sin(s.theta);
-    double gy = s.y + distM * std::cos(s.theta);
+    const double h = degToRad(holdHeadingDeg);
+    double gx = s.x + distM * std::sin(h);
+    double gy = s.y + distM * std::cos(h);
 
     autoCorrect(gx, gy, holdHeadingDeg, correctTimeoutMs, correctSpeedPct);
 }

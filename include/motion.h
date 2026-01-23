@@ -17,6 +17,9 @@ public:
     void drive(double distM, int timeoutMs = 4000, double maxSpeedPct = 80.0);
     void driveHeading(double distM, int timeoutMs, double maxSpeedPct, double holdHeadingDeg);
 
+    void driveCC(double distM, int timeoutMs = 4000, double maxSpeedPct = 80.0);
+    void driveHeadingCC(double distM, int timeoutMs, double maxSpeedPct, double holdHeadingDeg);
+
     void turnTo(double targetDeg, int timeoutMs = 4000);
     void turnBy(double deltaDeg, int timeoutMs = 4000);
 
