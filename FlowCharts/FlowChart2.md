@@ -1,36 +1,37 @@
 ```mermaid
 flowchart TD
-  A([drive(distM, timeoutMs, maxSpeedPct)]) --> B[Initialization<br/>holdHead = currentHeading<br/>startDist = avgEncDist<br/>targetDist = startDist + distM<br/><br/>distPID.setSetpoint(targetDist)<br/>distPID.reset(startDist)<br/>headPID.setSetpoint(0)<br/>headPID.reset(0)<br/><br/>vCmd=0, wCmd=0<br/>stopLatch=false, crossed=false]
+  S["START<br/>drive"]:::start --> I["Init"]:::proc --> L["Loop"]:::proc
 
-  B --> C[Start Timer<br/>elapsedMs=0, settledMs=0<br/>prevErr = targetDist - startDist]
+  L --> T{"Timeout?"}:::dec
+  T -->|Yes| C["Cleanup<br/>stopDrive(brake)"]:::proc --> E["END"]:::start
 
-  C --> D{Timeout?<br/>elapsedMs >= timeoutMs}
-  D -- Yes --> Z[Cleanup<br/>stopDrive(brake)] --> END([Return])
-  D -- No --> E[Read Sensors<br/>currDist = avgEncDist<br/>currHead = headingDeg<br/>distErr = targetDist - currDist<br/>headErr = angleDiff(holdHead, currHead)]
+  T -->|No| R["Read sensors<br/>distErr, headErr"]:::proc
+  R --> H{"stopLatch?"}:::dec
 
-  E --> F{stopLatch == true?}
+  H -->|Yes| HX{"Exit hold?<br/>abs(distErr) > stopExit"}:::dec
+  HX -->|Yes| HR["Exit hold<br/>stopLatch=false"]:::proc --> L
+  HX -->|No| HC["Heading hold<br/>headPID -> wCmd"]:::proc --> HO["tankDrive(wCmd, -wCmd)"]:::io
+  HO --> HT["holdTimer += dt"]:::proc
+  HT --> HD{"holdTimer >= stopSettle?"}:::dec
+  HD -->|Yes| C
+  HD -->|No| L
 
-  F -- Yes --> SH[Stop-and-Hold Phase<br/>(see separate diagram)] --> D
-  F -- No --> G[Dynamic Speed Cap<br/>cap = minCap + 200*|distErr|<br/>cap = min(cap, maxSpeedPct)<br/>distPID.outputLimits = ±cap]
+  H -->|No| CAP["Dynamic cap"]:::proc --> PID["PID compute<br/>distPID -> v<br/>headPID -> w"]:::proc
+  PID --> SC["Scale heading correction"]:::proc --> SL["Slew limit<br/>vCmd, wCmd"]:::proc
 
-  G --> H[PID Outputs<br/>v = distPID.update(currDist, dt)<br/>w = headPID.update(-headErr, dt)]
+  SL --> Z{"Crossed target?"}:::dec
+  Z -->|Yes| Z1["crossed=true"]:::proc --> EN
+  Z -->|No| EN["Continue"]:::proc
 
-  H --> I[Heading Correction Scaling<br/>wScale = min(1.0, |v|/18.0)<br/>wScale = max(wScale, 0.25)<br/>if |v|<12 && |headErr|>2° => wScale=max(wScale, 0.22)<br/>w = w * wScale]
+  EN --> EL{"Enter hold?<br/>abs(distErr) < stopEnter<br/>OR crossed"}:::dec
+  EL -->|Yes| LCH["Latch hold<br/>stopLatch=true<br/>vCmd=0, wCmd=0"]:::proc --> OUT
+  EL -->|No| OUT["Output<br/>left=vCmd+wCmd<br/>right=vCmd-wCmd"]:::proc --> TDV["tankDrive(left,right)"]:::io
 
-  I --> J[Slew Rate Limiting<br/>dvMax = dvPerSec*dt<br/>dwMax = dwPerSec*dt<br/>vCmd += clamp(v - vCmd, -dvMax, dvMax)<br/>wCmd += clamp(w - wCmd, -dwMax, dwMax)]
+  TDV --> ST{"Settled?<br/>small error + low speed<br/>for N ms"}:::dec
+  ST -->|Yes| C
+  ST -->|No| U["Update + wait(dt)"]:::proc --> L
 
-  J --> K{Zero-crossing?<br/>(prevErr>0 && distErr<0)<br/>or (prevErr<0 && distErr>0)}
-  K -- Yes --> K1[crossed = true]
-  K -- No --> K2[no change]
-  K1 --> L
-  K2 --> L
-
-  L{Enter stopLatch?<br/>!stopLatch && (|distErr|<stopEnter || crossed)}
-  L -- Yes --> L1[stopLatch=true<br/>vCmd=0, wCmd=0] --> M
-  L -- No --> M
-
-  M[Apply Motor Output<br/>left = vCmd + wCmd<br/>right = vCmd - wCmd<br/>tankDrive(left, right)] --> N[Settling Check<br/>if |distErr|<0.02 && |vCmd|<6<br/>  settledMs += dt<br/>else settledMs=0]
-
-  N --> O{settledMs >= 40ms?}
-  O -- Yes --> Z
-  O -- No --> P[Update State<br/>prevErr=distErr<br/>elapsedMs += dt<br/>wait(dt)] --> D
+  classDef start fill:#111827,stroke:#60a5fa,stroke-width:2px,color:#ffffff;
+  classDef dec fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#111827;
+  classDef proc fill:#e5e7eb,stroke:#6b7280,stroke-width:1.5px,color:#111827;
+  classDef io fill:#dcfce7,stroke:#22c55e,stroke-width:2px,color:#111827;

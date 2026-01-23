@@ -1,29 +1,30 @@
 ```mermaid
 flowchart TD
-  S["START<br/>autoCorrect"]:::start --> EN{"Enabled?"}:::dec
-  EN -->|No| E["END"]:::start
-  EN -->|Yes| I["Init<br/>iteration=0<br/>maxIterations=2"]:::proc --> L["Loop"]:::proc
+  S([autoCorrect(...)]):::start --> EN{Enabled?}:::dec
+  EN -->|No| E([Return]):::start
+  EN -->|Yes| I["Init<br/>iteration=0<br/>maxIterations=2"]:::proc --> L{{Loop}}:::proc
 
   L --> ERR["Compute error<br/>dist, dHead, localX, localY"]:::proc
-  ERR --> X{"Within exit tolerances?"}:::dec
+
+  ERR --> X{Within exit tolerances?}:::dec
   X -->|Yes| E
 
-  X -->|No| LIM{"Max iterations reached?"}:::dec
+  X -->|No| LIM{iteration >= maxIterations?}:::dec
   LIM -->|Yes| E
 
-  LIM -->|No| H{"Heading fix needed?<br/>abs(dHead) > ENTER_ANG"}:::dec
+  LIM -->|No| H{Heading needs fix?<br/>abs(dHead) > ENTER_ANG}:::dec
   H -->|Yes| H1["turnTo(targetHead)"]:::proc --> R
   H -->|No| R["Recompute error"]:::proc
 
-  R --> B{"Target behind?<br/>localY < -eps"}:::dec
+  R --> B{Target behind?<br/>localY < -eps}:::dec
   B -->|Yes| BK["drive(-BACKUP_M)"]:::proc --> LAT
   B -->|No| LAT["Lateral check"]:::proc
 
-  LAT --> LX{"abs(localX) > ENTER_POS?"}:::dec
-  LX -->|Yes| SL["turnBy(+/- 90)"]:::proc --> SD["drive(stepX)"]:::proc --> RB["turnTo(targetHead)"]:::proc --> FWD
+  LAT --> LX{abs(localX) > ENTER_POS?}:::dec
+  LX -->|Yes| SL["turnBy(±90)"]:::proc --> SD["drive(stepX)"]:::proc --> RB["turnTo(targetHead)"]:::proc --> FWD
   LX -->|No| FWD["Forward check"]:::proc
 
-  FWD --> LY{"abs(localY) > ENTER_POS?"}:::dec
+  FWD --> LY{abs(localY) > ENTER_POS?}:::dec
   LY -->|Yes| FD["drive(stepY)"]:::proc --> FIN
   LY -->|No| FIN["Final heading check"]:::proc
 

@@ -1,15 +1,21 @@
 ```mermaid
 flowchart TD
-  SH0([STOP-AND-HOLD PHASE]) --> SH1[Read Heading<br/>currHead=headingDeg<br/>headErr=angleDiff(holdHead, currHead)]
+  S["START<br/>turnTo / turnBy"]:::start --> I["Init<br/>turnPID reset<br/>wCmd=0<br/>rateFilt=0"]:::proc --> L["Loop"]:::proc
 
-  SH1 --> SH2{Exit hold?<br/>|distErr| > stopExit}
-  SH2 -- Yes --> SH3[stopLatch = false<br/>Return to normal control] --> SHEND([Return to drive loop])
+  L --> T{"Timeout?"}:::dec
+  T -->|Yes| C["Cleanup<br/>stopDrive(brake)"]:::proc --> E["END"]:::start
 
-  SH2 -- No --> SH4[Heading-only correction<br/>w = headPID.update(-headErr, dt)<br/>if |headErr|<1° => w=0, wCmd=0<br/>else wCmd += slew(w - wCmd)]
+  T -->|No| ER["Compute error"]:::proc
+  ER --> RT["Rate (filtered)"]:::proc
+  RT --> PID["turnPID -> w"]:::proc
+  PID --> SL["Slew -> wCmd"]:::proc
+  SL --> OUT["tankDrive(wCmd, -wCmd)"]:::io
 
-  SH4 --> SH5[Apply Turn-only Output<br/>tankDrive(wCmd, -wCmd)]
-  SH5 --> SH6[Increment Hold Timer<br/>stopHoldMs += dt]
+  OUT --> ST{"Settled?<br/>abs(err) small<br/>AND abs(rateFilt) small<br/>for N ms"}:::dec
+  ST -->|Yes| C
+  ST -->|No| U["wait(dt)"]:::proc --> L
 
-  SH6 --> SH7{stopHoldMs >= stopSettleMs?}
-  SH7 -- Yes --> SH8[Break / Exit entire drive loop] --> SHEND
-  SH7 -- No --> SH1
+  classDef start fill:#111827,stroke:#60a5fa,stroke-width:2px,color:#ffffff;
+  classDef dec fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#111827;
+  classDef proc fill:#e5e7eb,stroke:#6b7280,stroke-width:1.5px,color:#111827;
+  classDef io fill:#dcfce7,stroke:#22c55e,stroke-width:2px,color:#111827;

@@ -1,19 +1,33 @@
 ```mermaid
-flowchart TD
-  A([turnTo(targetDeg, timeoutMs)<br/>or turnBy(deltaDeg, timeoutMs)]) --> B[Initialization<br/><br/>turnTo: targetHead=targetDeg, useHeading=true<br/>turnBy: targetRot = rotationDeg()+deltaDeg, useHeading=false<br/><br/>turnPID.setSetpoint(0)<br/>turnPID.reset(0)<br/>wCmd=0, settledMs=0<br/>rateFilt=0, prevHead=currentHeading]
+flowchart TB
+  U["User / Autonomous Code"]:::io --> MC
 
-  B --> C{Timeout?<br/>elapsedMs >= timeoutMs}
-  C -- Yes --> Z[Cleanup<br/>stopDrive(brake)] --> END([Return])
-  C -- No --> D[Read Sensors + Error<br/>if useHeading:<br/>  currHead=headingDeg<br/>  err=angleDiff(targetHead, currHead)<br/>else:<br/>  currRot=rotationDeg<br/>  err=targetRot - currRot]
+  subgraph MC["Motion Controller"]
+    direction TB
 
-  D --> E[Compute Angular Rate<br/>dHead = currHead - prevHead<br/>wrap: if dHead>180 => dHead-=360<br/>wrap: if dHead<-180 => dHead+=360<br/>rate = dHead/dt<br/>LPF: rateFilt += alpha*(rate-rateFilt)<br/>prevHead=currHead]
+    subgraph HL["High-Level Methods"]
+      direction LR
+      d["drive()"]:::proc --> tt["turnTo()"]:::proc --> tb["turnBy()"]:::proc --> ac["autoCorrect()"]:::proc
+      dac["driveAC()"]:::proc --> tta["turnToAC()"]:::proc --> tba["turnByAC()"]:::proc
+      dcc["driveCC()"]:::proc
+    end
 
-  E --> F[PID Output<br/>w = turnPID.update(-err, dt)]
-  F --> G[Slew Limit<br/>dwMax = dwPerSec*dt<br/>wCmd += clamp(w - wCmd, -dwMax, dwMax)]
-  G --> H[Apply Output (pure rotation)<br/>tankDrive(wCmd, -wCmd)]
+    subgraph PID["PID Controllers"]
+      direction LR
+      dp["distPID"]:::proc --> hp["headPID"]:::proc --> tp["turnPID"]:::proc
+    end
 
-  H --> I[Settling Check<br/>if |err|<1° && |rateFilt|<8°/s<br/>  settledMs += dt<br/>else settledMs = 0]
+    HL --> PID
+  end
 
-  I --> J{settledMs >= 150ms?}
-  J -- Yes --> Z
-  J -- No --> K[Update Timer<br/>elapsedMs += dt<br/>wait(dt)] --> C
+  MC --> OP
+
+  subgraph OP["Output Processing"]
+    direction LR
+    slew["Slew Limit"]:::proc --> cap["Speed Cap"]:::proc --> out["tankDrive(left,right)"]:::io
+  end
+
+  classDef start fill:#111827,stroke:#60a5fa,stroke-width:2px,color:#ffffff;
+  classDef dec fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#111827;
+  classDef proc fill:#e5e7eb,stroke:#6b7280,stroke-width:1.5px,color:#111827;
+  classDef io fill:#dcfce7,stroke:#22c55e,stroke-width:2px,color:#111827;
