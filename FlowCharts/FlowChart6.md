@@ -1,3 +1,4 @@
+```mermaid
 flowchart TD
   A([autoCorrect(targetX, targetY, targetHead, timeoutMs, maxSpeed)]) --> B{autoCorrectEnabled_?}
   B -- No --> END([Return / no-op])

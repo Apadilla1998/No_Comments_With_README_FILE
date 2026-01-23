@@ -1,3 +1,4 @@
+```mermaid
 flowchart TD
   U[User / Autonomous Code] --> MC
 

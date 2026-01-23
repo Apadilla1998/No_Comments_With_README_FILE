@@ -1,3 +1,4 @@
+```mermaid
 flowchart TD
   A([turnTo(targetDeg, timeoutMs)<br/>or turnBy(deltaDeg, timeoutMs)]) --> B[Initialization<br/><br/>turnTo: targetHead=targetDeg, useHeading=true<br/>turnBy: targetRot = rotationDeg()+deltaDeg, useHeading=false<br/><br/>turnPID.setSetpoint(0)<br/>turnPID.reset(0)<br/>wCmd=0, settledMs=0<br/>rateFilt=0, prevHead=currentHeading]
 

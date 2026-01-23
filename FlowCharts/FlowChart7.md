@@ -1,3 +1,4 @@
+```mermaid
 flowchart TD
   A([drive(distM, timeoutMs, maxSpeedPct)]) --> B[Init<br/>holdHead = headingDeg()<br/>startDist = avgEncDist()<br/>targetDist = startDist + distM<br/>distPID: SP=targetDist, reset(startDist)<br/>headPID: SP=0, reset(0)<br/>vCmd=0, wCmd=0<br/>stopLatch=false, crossed=false<br/>elapsed=0, settled=0, prevErr=targetDist-startDist]
 

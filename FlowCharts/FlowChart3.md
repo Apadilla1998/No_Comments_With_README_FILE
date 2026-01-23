@@ -1,3 +1,4 @@
+```mermaid
 flowchart TD
   SH0([STOP-AND-HOLD PHASE]) --> SH1[Read Heading<br/>currHead=headingDeg<br/>headErr=angleDiff(holdHead, currHead)]
 
