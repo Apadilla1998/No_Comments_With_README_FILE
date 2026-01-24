@@ -8,7 +8,6 @@
 
 using namespace vex;
 
-//outtakes
 static const int OUTTAKE_NORMAL_PCT   = 40;
 static const int OUTTAKE_WINGS_UP_PCT = 100;
 
@@ -17,20 +16,27 @@ static const double OUTTAKE_DECEL_PCT_PER_S = 900.0;
 
 static double outtakeCmd = 0.0;
 
-//drivetrain
 static const double FWD_CURVE  = 0.2;
-static const double TURN_CURVE = 0.285;
-static const double LEFT_BIAS  = 0.945;
+static const double TURN_CURVE = 0.250;
+static const double LEFT_BIAS  = 0.95;
 static const double RIGHT_BIAS = 1.0;
 
 const double ACCEL_PCT_PER_S = 350.0;
 const double DECEL_PCT_PER_S = 290.0;
-const double DT = 0.03;
+const double DT = 0.02;
 
-//drivetrain
-static double lCmd = 0.015;
-static double rCmd = 0.015;
+static const double DRIVE_SCALE_FAST = 0.80;
+static const double DRIVE_SCALE_SLOW = 0.40;
 
+static const double TURN_SCALE_FAST  = 0.55;
+static const double TURN_SCALE_SLOW  = 0.35;
+static const double TURN_MAX_PCT     = 80.0;
+
+static const double TURN_ACCEL_PCT_PER_S = 900.0;
+static const double TURN_DECEL_PCT_PER_S = 1100.0;
+
+static double fwdCmd = 0.0;
+static double trnCmd = 0.0;
 
 static double computeCurve(double inputPct, double curve) {
     double v = inputPct / 100.0;
@@ -49,7 +55,6 @@ static void updateControllerScreen(bool isFast, bool showOdom) {
     Controller1.Screen.clearLine(3);
 
     if (!showOdom) {
-
         Controller1.Screen.setCursor(1, 1);
         Controller1.Screen.print("SPEED: %s", isFast ? "FAST" : "SLOW");
 
@@ -72,59 +77,68 @@ static void updateControllerScreen(bool isFast, bool showOdom) {
 void usercontrol() {
     bool prevR1 = false, prevUp = false, prevX = false, prevY = false;
 
-    // bool prevLeft  = Controller1.ButtonLeft.pressing();
-    // bool prevRight = Controller1.ButtonRight.pressing();
-
     bool isFast = true;
     bool showOdom = false;
 
     int screenTimer = 0;
     updateControllerScreen(isFast, showOdom);
 
-    auto slewStep = [&](double target, double current) -> double {
+    auto slewAxis = [&](double target, double current, double accel, double decel) -> double {
         double delta = target - current;
         bool increasingMag = (std::fabs(target) > std::fabs(current));
-        double maxStep = (increasingMag ? ACCEL_PCT_PER_S : DECEL_PCT_PER_S) * DT;
-        if (delta >  maxStep) delta =  maxStep;
-        if (delta < -maxStep) delta = -maxStep;
+        double maxStep = (increasingMag ? accel : decel) * DT;
+        delta = clampD(delta, -maxStep, maxStep);
         return current + delta;
     };
 
-    LeftMotorGroup.setStopping(brake);
-    RightMotorGroup.setStopping(brake);
+    LeftMotorGroup.setStopping(coast);
+    RightMotorGroup.setStopping(coast);
 
-    bool wasNeutral = false;
+    bool driveStopped = true;
 
     while (true) {
-        double fwd = computeCurve(Controller1.Axis3.position(pct), FWD_CURVE);
-        double trn = computeCurve(Controller1.Axis1.position(pct), TURN_CURVE);
+        double fwdIn = computeCurve(Controller1.Axis3.position(pct), FWD_CURVE);
+        double trnIn = computeCurve(Controller1.Axis1.position(pct), TURN_CURVE);
 
-        if (std::fabs(fwd) < 5.0) fwd = 0;
-        if (std::fabs(trn) < 5.0) trn = 0;
+        if (std::fabs(fwdIn) < 5.0) fwdIn = 0.0;
+        if (std::fabs(trnIn) < 5.0) trnIn = 0.0;
 
-        double speedScale = isFast ? 0.8 : 0.4;
-        double lReq = (fwd + trn) * speedScale * LEFT_BIAS;
-        double rReq = (fwd - trn) * speedScale * RIGHT_BIAS;
+        const bool neutralInput = (fwdIn == 0.0 && trnIn == 0.0);
 
-        const bool neutral = (fwd == 0.0 && trn == 0.0);
+        const double driveScale = isFast ? DRIVE_SCALE_FAST : DRIVE_SCALE_SLOW;
+        const double turnScale  = isFast ? TURN_SCALE_FAST  : TURN_SCALE_SLOW;
 
-        if (neutral) {
-            lCmd = 0.0;
-            rCmd = 0.0;
+        double fwdReq = fwdIn * driveScale;
+        double trnReq = trnIn * turnScale;
+        trnReq = clampD(trnReq, -TURN_MAX_PCT, TURN_MAX_PCT);
 
-            if (!wasNeutral) {
-                LeftMotorGroup.stop();
-                RightMotorGroup.stop();
-                wasNeutral = true;
+        if (neutralInput) {
+            fwdReq = 0.0;
+            trnReq = 0.0;
+        }
+
+        fwdCmd = slewAxis(fwdReq, fwdCmd, ACCEL_PCT_PER_S, DECEL_PCT_PER_S);
+        trnCmd = slewAxis(trnReq, trnCmd, TURN_ACCEL_PCT_PER_S, TURN_DECEL_PCT_PER_S);
+
+        double lOut = clampPct((fwdCmd + trnCmd) * LEFT_BIAS);
+        double rOut = clampPct((fwdCmd - trnCmd) * RIGHT_BIAS);
+
+        if (neutralInput) {
+            if (std::fabs(fwdCmd) < 0.8 && std::fabs(trnCmd) < 0.8) {
+                if (!driveStopped) {
+                    LeftMotorGroup.stop();
+                    RightMotorGroup.stop();
+                    driveStopped = true;
+                }
+            } else {
+                driveStopped = false;
+                LeftMotorGroup.spin(forward, lOut, pct);
+                RightMotorGroup.spin(forward, rOut, pct);
             }
         } else {
-            wasNeutral = false;
-
-            lCmd = slewStep(lReq, lCmd);
-            rCmd = slewStep(rReq, rCmd);
-
-            LeftMotorGroup.spin(forward, lCmd, pct);
-            RightMotorGroup.spin(forward, rCmd, pct);
+            driveStopped = false;
+            LeftMotorGroup.spin(forward, lOut, pct);
+            RightMotorGroup.spin(forward, rOut, pct);
         }
 
         bool needsUpdate = false;
@@ -159,8 +173,6 @@ void usercontrol() {
         }
         prevY = y;
 
-       
-
         if (Controller1.ButtonL1.pressing() || Controller1.ButtonL2.pressing()) {
             runIntake(100);
         } else if (Controller1.ButtonR2.pressing()) {
@@ -169,14 +181,13 @@ void usercontrol() {
             stopIntake();
         }
 
-        if(Controller1.ButtonLeft.pressing()){
+        if (Controller1.ButtonLeft.pressing()) {
             moveArmLeft(25);
-        }
-        else if(Controller1.ButtonRight.pressing()){
+        } else if (Controller1.ButtonRight.pressing()) {
             moveArmRight(25);
-        }
-        else
+        } else {
             stopArm();
+        }
 
         const int outtakeBase = wings.isExtended() ? OUTTAKE_WINGS_UP_PCT : OUTTAKE_NORMAL_PCT;
 

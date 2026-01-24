@@ -32,12 +32,12 @@ rotation horizontalRot(PORT6, false);
 
 optical ballSensor(PORT21);
 
-motor DescoreMotor(PORT18, ratio36_1, true);
+motor DescoreMotor(PORT17, ratio36_1, true);
 
 namespace config {
     const double TRACK_WIDTH_M = 0.320;
 
-    const double TRACKING_WHEEL_CIRCUMFERENCE_M = 0.049  * M_PI;
+    const double TRACKING_WHEEL_CIRCUMFERENCE_M = 0.050  * M_PI;
 
     const double ARCADE_DEADBAND = 0.0;
 

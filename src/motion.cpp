@@ -31,14 +31,14 @@ double MotionController::angleDiffDeg(double targetDeg, double currentDeg) {
 }
 
 MotionController::MotionController()
-    : distPID_(0.38, 0.0, 0.0041),
-      headPID_(0.25, 0.001, 0.001),
-      turnPID_(0.25, 0.001, 0.001)
+    : distPID_(20, 0.00, 5.0),
+      headPID_(0.35, 0.002, 0.0015),
+      turnPID_(0.35, 0.002, 0.0015)
 {
     distPID_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
-    distPID_.setDerivativeFilterTf(0.10);
+    distPID_.setDerivativeFilterTf(0.18);
     distPID_.setAntiWindupTau(0.15);
-    distPID_.setErrorDeadband(0.006);
+    distPID_.setErrorDeadband(0.010);
     distPID_.setOutputLimits(-100, 100);
 
     headPID_.setDerivativeMode(PID::DerivativeMode::OnMeasurement);
@@ -76,7 +76,7 @@ void MotionController::driveHeading(double distM, int timeoutMs, double maxSpeed
     int stopHoldMs = 0;
 
     const double minCap = 10.0;
-    const double stopBand = 0.015;
+    const double stopBand = 0.010;
 
     const double stopEnter = 0.030;
     const double stopExit  = 0.055;
@@ -87,7 +87,7 @@ void MotionController::driveHeading(double distM, int timeoutMs, double maxSpeed
     bool crossed = false;
 
     double vCmd = 0.0;
-    const double dvPerSec = 160.0;
+    const double dvPerSec = 350.0;
     const double dvMax = dvPerSec * dt;
 
     double wCmd = 0.0;
@@ -152,7 +152,7 @@ void MotionController::driveHeading(double distM, int timeoutMs, double maxSpeed
             vCmd = 0.0;
         } else {
             if (std::fabs(distErr) > 0.12) {
-                const double floor = 8.0;
+                const double floor = 18.0;
                 if (std::fabs(v) < floor) v = (distErr > 0.0) ? floor : -floor;
             }
         }
@@ -225,7 +225,7 @@ void MotionController::driveHeadingCC(double distM, int timeoutMs, double maxSpe
     int settledMs = 0;
 
     double vCmd = 0.0;
-    const double dvPerSec = 160.0;
+    const double dvPerSec = 450.0;
     const double dvMax = dvPerSec * dt;
 
     double wCmd = 0.0;
